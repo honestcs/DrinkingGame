@@ -5,7 +5,7 @@ import path from 'path'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [vue()],
-  base: '/DrinkingGame/', // Update base path for GitHub Pages
+  base: './', // Relative base path for flexible deployment (e.g. GitHub Pages)
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src')

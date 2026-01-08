@@ -31,11 +31,7 @@ const router = useRouter()
 
 const goTo = (name) => {
   if (name === 'Dice') {
-    // Correctly handle public path for dice.html
-    const baseUrl = import.meta.env.BASE_URL.endsWith('/') 
-      ? import.meta.env.BASE_URL 
-      : import.meta.env.BASE_URL + '/'
-    const url = `${window.location.origin}${baseUrl}dice.html`
+    const url = `${import.meta.env.BASE_URL}dice.html`
     window.location.href = url
   } else {
     router.push({ name })

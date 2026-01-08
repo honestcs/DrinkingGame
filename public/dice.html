@@ -211,6 +211,21 @@
   .small { width:48px; height:48px; border-radius:50%;
            border: 2px solid rgba(255,255,255,.25);
            background: rgba(255,255,255,.08); color:#fff; font-size:20px; }
+  .btn-back {
+    position: absolute;
+    top: 20px; left: 20px;
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    font-size: 20px;
+    display: flex; justify-content: center; align-items: center;
+    cursor: pointer;
+    text-decoration: none;
+    z-index: 200;
+  }
+  .btn-back:active { transform: scale(0.9); background: rgba(255,255,255,0.25); }
   .btn-shake {
     width: 90px; height: 90px; border-radius: 50%;
     background: radial-gradient(circle, #ff5252, #d32f2f);
@@ -222,6 +237,7 @@
 </style>
 </head>
 <body>
+<a href="./" class="btn-back">←</a>
 <div class="wrap">
   <div class="stage">
     <div id="plate" class="plate"></div>
@@ -326,9 +342,10 @@
   function randomPos(centerBias = 0.85) {
     const maxDist = 80;
     const angle = Math.random() * Math.PI * 2;
-    const dist  = Math.random() * maxDist * centerBias;
-    const x = Math.cos(angle) * dist;
-    const z = Math.sin(angle) * dist;
+    // Use sqrt for uniform disk distribution, then bias towards center
+    const r = Math.sqrt(Math.random()) * maxDist * centerBias; 
+    const x = Math.cos(angle) * r;
+    const z = Math.sin(angle) * r;
     return { x, z };
   }
 
@@ -336,14 +353,30 @@
     diceGroup.innerHTML = '';
     dice = [];
     const positions = [];
+    
+    // Safety break loop count
+    const MAX_ATTEMPTS = 500;
+
     for (let i = 0; i < currentDiceCount; i++) {
       const die = createDie();
-      let pos, tries = 0, ok = false;
-      while (!ok && tries < 120) {
-        pos = randomPos(.9);
-        ok = positions.every(p => Math.hypot(p.x - pos.x, p.z - pos.z) >= 40);
-        tries++;
+      let pos, ok = false;
+      let attempts = 0;
+      
+      while (!ok && attempts < MAX_ATTEMPTS) {
+        pos = randomPos(0.95);
+        // Collision check: distance must be >= die size (approx 40px to be safe)
+        // Using 42px to add a small gap
+        ok = positions.every(p => Math.hypot(p.x - pos.x, p.z - pos.z) >= 42);
+        attempts++;
       }
+      
+      // If we failed to find a spot after many tries, just place it anyway
+      // (or we could expand the radius, but let's stick to simple fail-safe)
+      if (!ok) {
+        // Fallback: try to place in a spiral if random fails? 
+        // For now, just accept the last random pos to ensure all dice appear.
+      }
+
       positions.push(pos);
       die.style.transform = `translate3d(${pos.x}px, ${pos.z}px, ${HALF}px) ${BASE_TO_ZPLUS[1]}`;
       diceGroup.appendChild(die);
