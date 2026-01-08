@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>摇骰子 - 真实六面与合法朝向</title>
+<style>
+  :root {
+    --scene-w: 360px;
+    --scene-h: 520px;
+    --die-size: 36px;
+    --face: var(--die-size);
+    --half: calc(var(--die-size) / 2);
+  }
+  body {
+    margin: 0;
+    background: radial-gradient(circle at 50% 30%, #0f2027, #203a43 60%, #2c5364 100%);
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    color: #fff;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+  }
+  .wrap {
+    width: 100vw;
+    max-width: 480px;
+    padding: 14px 12px 24px;
+    box-sizing: border-box;
+  }
+  .stage {
+    width: var(--scene-w);
+    height: var(--scene-h);
+    margin: 0 auto;
+    position: relative;
+    perspective: 900px;
+    /* transform-style: preserve-3d; Removed to enforce z-index layering */
+  }
+  .plate {
+    position: absolute;
+    width: 280px;
+    height: 280px;
+    left: 50%;
+    top: 180px;
+    transform: translateX(-50%) rotateX(60deg) translateZ(-40px);
+    border-radius: 50%;
+    background: radial-gradient(ellipse at 50% 40%, #2e76c3 0%, #1e5799 55%, #003060 100%);
+    box-shadow:
+      0 14px 20px rgba(0,0,0,0.45),
+      inset 0 0 16px rgba(0,0,0,0.55);
+    border: 4px solid #3b9add;
+    z-index: 1;
+  }
+  .plate::after {
+    content: "";
+    position: absolute;
+    inset: 12px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.15);
+  }
+  .cup {
+    position: absolute;
+    width: 240px;
+    height: 280px;
+    left: 50%;
+    top: 120px;
+    transform: translateX(-50%);
+    pointer-events: auto;
+    transition: transform 0.5s cubic-bezier(.19,1,.22,1), opacity 0.5s;
+    z-index: 10;
+    cursor: pointer;
+  }
+  .cup-body {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, #0d47a1, #42a5f5 30%, #1e88e5 60%, #0d47a1);
+    border-radius: 12% 12% 46% 46% / 10% 10% 18% 18%;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  }
+  .cup-body::before {
+    content: "";
+    position: absolute;
+    inset: 24% 18%;
+    border-radius: 50%;
+    background: radial-gradient(circle at 50% 40%, #b7ad98 0%, #cfc09f 38%, #9f9382 100%);
+    filter: blur(.5px);
+  }
+  .cup.open { transform: translateX(-50%) translateY(-160px) scale(.92); opacity:.85; }
+  .cup.shaking { animation: cup-shake .1s infinite; }
+  
+  /* Settings Modal */
+  .modal {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6);
+    z-index: 100;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(4px);
+  }
+  .modal.active { display: flex; }
+  .modal-content {
+    background: #1a2a33;
+    padding: 24px;
+    border-radius: 16px;
+    border: 1px solid #3b9add;
+    width: 280px;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  }
+  .modal h3 { margin: 0 0 20px; color: #81d4fa; }
+  .control-group { margin-bottom: 24px; }
+  .slider-row { display: flex; align-items: center; gap: 12px; justify-content: center; }
+  input[type=range] { flex: 1; accent-color: #42a5f5; cursor: pointer; }
+  .val-display { font-size: 20px; font-weight: bold; width: 30px; }
+  .btn-confirm {
+    background: linear-gradient(135deg, #1e88e5, #1565c0);
+    border: none; color: white;
+    padding: 10px 32px;
+    border-radius: 20px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  }
+  .btn-confirm:active { transform: scale(0.96); }
+  @keyframes cup-shake {
+    0% { transform: translateX(-50%) translateY(0) rotate(0deg); }
+    25%{ transform: translateX(-50%) translateY(0) rotate(2.2deg); }
+    50%{ transform: translateX(-50%) translateY(0) rotate(-2.2deg); }
+    75%{ transform: translateX(-50%) translateY(0) rotate(2.2deg); }
+    100%{transform: translateX(-50%) translateY(0) rotate(0deg);}
+  }
+  .dice-group {
+    position: absolute;
+    left: 50%;
+    top: 340px;
+    width: 0; height: 0;
+    transform: translateX(-50%) rotateX(60deg);
+    transform-style: preserve-3d;
+    transition: opacity .2s;
+    z-index: 5;
+  }
+  .die {
+    position: absolute;
+    width: var(--die-size);
+    height: var(--die-size);
+    margin-left: calc(var(--half) * -1);
+    margin-top: calc(var(--half) * -1);
+    transform-style: preserve-3d;
+  }
+  .cube {
+    width: 100%; height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+  }
+  .face {
+    position: absolute;
+    width: var(--face); height: var(--face);
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows:    repeat(3, 1fr);
+    padding: 4px; box-sizing: border-box;
+    border-radius: 8px;
+    background: radial-gradient(circle at 30% 28%, #fff, #f2f2f2 66%);
+    border: 1px solid #e0e0e0;
+    box-shadow:
+      inset 0 0 2px rgba(0,0,0,.14),
+      inset 2px 2px 6px rgba(255,255,255,.75),
+      0 0 1px rgba(0,0,0,.12);
+    backface-visibility: hidden;
+  }
+  .front  { transform: rotateY(0deg)    translateZ(var(--half)); }
+  .back   { transform: rotateY(180deg)  translateZ(var(--half)); }
+  .right  { transform: rotateY(90deg)   translateZ(var(--half)); }
+  .left   { transform: rotateY(-90deg)  translateZ(var(--half)); }
+  .top    { transform: rotateX(90deg)   translateZ(var(--half)); }
+  .bottom { transform: rotateX(-90deg)  translateZ(var(--half)); }
+  .dot { width: 8px; height: 8px; border-radius: 50%;
+         align-self: center; justify-self: center;
+         box-shadow: inset 1px 1px 2px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.55); }
+  .red  { background:#d32f2f; }
+  .blue { background:#1976d2; }
+  .big  { width:12px; height:12px; }
+  .front .dot { grid-area: 2 / 2; }
+  .top .dot:nth-child(1) { grid-area: 1 / 2; }
+  .top .dot:nth-child(2) { grid-area: 3 / 2; }
+  .right .dot:nth-child(1) { grid-area: 1 / 3; }
+  .right .dot:nth-child(2) { grid-area: 2 / 2; }
+  .right .dot:nth-child(3) { grid-area: 3 / 1; }
+  .left .dot:nth-child(1) { grid-area: 1 / 1; }
+  .left .dot:nth-child(2) { grid-area: 1 / 3; }
+  .left .dot:nth-child(3) { grid-area: 3 / 1; }
+  .left .dot:nth-child(4) { grid-area: 3 / 3; }
+  .bottom .dot:nth-child(1) { grid-area: 1 / 1; }
+  .bottom .dot:nth-child(2) { grid-area: 1 / 3; }
+  .bottom .dot:nth-child(3) { grid-area: 2 / 2; }
+  .bottom .dot:nth-child(4) { grid-area: 3 / 1; }
+  .bottom .dot:nth-child(5) { grid-area: 3 / 3; }
+  .back .dot:nth-child(1) { grid-area: 1 / 1; }
+  .back .dot:nth-child(2) { grid-area: 2 / 1; }
+  .back .dot:nth-child(3) { grid-area: 3 / 1; }
+  .back .dot:nth-child(4) { grid-area: 1 / 3; }
+  .back .dot:nth-child(5) { grid-area: 2 / 3; }
+  .back .dot:nth-child(6) { grid-area: 3 / 3; }
+  .bar { width: var(--scene-w); margin: 6px auto 0; text-align: center; }
+  /* .total { color: #81d4fa; font-weight: 600; margin: 8px 0 16px; } */
+  .controls { display:flex; justify-content:center; gap:34px; align-items:center; margin-top: 30px; }
+  .small { width:48px; height:48px; border-radius:50%;
+           border: 2px solid rgba(255,255,255,.25);
+           background: rgba(255,255,255,.08); color:#fff; font-size:20px; }
+  .btn-shake {
+    width: 90px; height: 90px; border-radius: 50%;
+    background: radial-gradient(circle, #ff5252, #d32f2f);
+    border: 4px solid #b71c1c; box-shadow: 0 0 15px rgba(255,0,0,.4);
+    color: #fff; font-size: 32px; font-weight: 800;
+  }
+  .btn-shake:active { transform: scale(.96); box-shadow: 0 0 5px rgba(255,0,0,.4); }
+  .cup.shaking { animation: cup-shake .1s infinite; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="stage">
+    <div id="plate" class="plate"></div>
+    <div id="diceGroup" class="dice-group"></div>
+    <div id="cup" class="cup open">
+      <div class="cup-body"></div>
+    </div>
+  </div>
+
+  <div class="bar">
+    <!-- <div id="total" class="total">总点数: 0</div> -->
+    <div class="controls">
+      <button class="small" title="历史">🔔</button>
+      <button id="btn" class="btn-shake">摇</button>
+      <button id="btnSettings" class="small" title="设置">⚙️</button>
+    </div>
+  </div>
+</div>
+
+<div id="settingsModal" class="modal">
+  <div class="modal-content">
+    <h3>游戏设置</h3>
+    <div class="control-group">
+      <label style="display:block; margin-bottom:10px; opacity:0.8;">骰子数量</label>
+      <div class="slider-row">
+        <span>1</span>
+        <input type="range" id="diceCountInput" min="1" max="12" value="5" step="1">
+        <span id="diceCountVal" class="val-display">5</span>
+      </div>
+    </div>
+    <button id="btnConfirm" class="btn-confirm">确定</button>
+  </div>
+</div>
+
+<script>
+  const BASE_TO_ZPLUS = {
+    1: 'rotateX(0deg) rotateY(0deg)',
+    2: 'rotateX(-90deg) rotateY(0deg)',
+    3: 'rotateY(-90deg) rotateX(0deg)',
+    4: 'rotateY(90deg) rotateX(0deg)',
+    5: 'rotateX(90deg) rotateY(0deg)',
+    6: 'rotateX(180deg) rotateY(0deg)'
+  };
+  const Z_SPINS = [0, 90, 180, 270];
+  const ORIENTATIONS = {
+    1: Z_SPINS.map(z => `${BASE_TO_ZPLUS[1]} rotateZ(${z}deg)`),
+    2: Z_SPINS.map(z => `${BASE_TO_ZPLUS[2]} rotateZ(${z}deg)`),
+    3: Z_SPINS.map(z => `${BASE_TO_ZPLUS[3]} rotateZ(${z}deg)`),
+    4: Z_SPINS.map(z => `${BASE_TO_ZPLUS[4]} rotateZ(${z}deg)`),
+    5: Z_SPINS.map(z => `${BASE_TO_ZPLUS[5]} rotateZ(${z}deg)`),
+    6: Z_SPINS.map(z => `${BASE_TO_ZPLUS[6]} rotateZ(${z}deg)`)
+  };
+
+  const diceGroup = document.getElementById('diceGroup');
+  // const totalEl   = document.getElementById('total');
+  const cupEl     = document.getElementById('cup');
+  const btn       = document.getElementById('btn');
+  
+  // Settings DOM
+  const btnSettings = document.getElementById('btnSettings');
+  const modal       = document.getElementById('settingsModal');
+  const btnConfirm  = document.getElementById('btnConfirm');
+  const countInput  = document.getElementById('diceCountInput');
+  const countVal    = document.getElementById('diceCountVal');
+
+  const DIE_SIZE = 36;
+  const HALF     = DIE_SIZE / 2;
+  
+  let currentDiceCount = 5;
+  let dice = [];
+
+  function createDie() {
+    const el = document.createElement('div');
+    el.className = 'die';
+    el.innerHTML = `
+      <div class="cube">
+        <div class="face front"><span class="dot red big"></span></div>
+        <div class="face back">
+          <span class="dot blue"></span><span class="dot blue"></span>
+          <span class="dot blue"></span><span class="dot blue"></span>
+          <span class="dot blue"></span><span class="dot blue"></span>
+        </div>
+        <div class="face top">
+          <span class="dot blue"></span><span class="dot blue"></span>
+        </div>
+        <div class="face bottom">
+          <span class="dot blue"></span><span class="dot blue"></span>
+          <span class="dot blue"></span><span class="dot blue"></span>
+          <span class="dot blue"></span>
+        </div>
+        <div class="face right">
+          <span class="dot blue"></span><span class="dot blue"></span><span class="dot blue"></span>
+        </div>
+        <div class="face left">
+          <span class="dot red"></span><span class="dot red"></span>
+          <span class="dot red"></span><span class="dot red"></span>
+        </div>
+      </div>`;
+    return el;
+  }
+
+  function randomPos(centerBias = 0.85) {
+    const maxDist = 80;
+    const angle = Math.random() * Math.PI * 2;
+    const dist  = Math.random() * maxDist * centerBias;
+    const x = Math.cos(angle) * dist;
+    const z = Math.sin(angle) * dist;
+    return { x, z };
+  }
+
+  function placeDice() {
+    diceGroup.innerHTML = '';
+    dice = [];
+    const positions = [];
+    for (let i = 0; i < currentDiceCount; i++) {
+      const die = createDie();
+      let pos, tries = 0, ok = false;
+      while (!ok && tries < 120) {
+        pos = randomPos(.9);
+        ok = positions.every(p => Math.hypot(p.x - pos.x, p.z - pos.z) >= 40);
+        tries++;
+      }
+      positions.push(pos);
+      die.style.transform = `translate3d(${pos.x}px, ${pos.z}px, ${HALF}px) ${BASE_TO_ZPLUS[1]}`;
+      diceGroup.appendChild(die);
+      dice.push({ el: die, pos });
+    }
+    // totalEl.textContent = '总点数: 0';
+  }
+
+  function randomSpin(el, pos) {
+    const rx = 360 * (1 + Math.floor(Math.random() * 2));
+    const ry = 360 * (1 + Math.floor(Math.random() * 2));
+    const rz = 360 * (1 + Math.floor(Math.random() * 2));
+    const dur = 200 + Math.random() * 200;
+    el.style.transition = `transform ${dur}ms linear`;
+    el.style.transform  = `translate3d(${pos.x}px, ${pos.z}px, ${HALF}px) rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg)`;
+    return dur;
+  }
+
+  function snapToResult(el, pos, result) {
+    const orientList = ORIENTATIONS[result];
+    const target     = orientList[Math.floor(Math.random() * 4)];
+    const dur        = 600 + Math.random() * 200;
+    el.style.transition = `transform ${dur}ms cubic-bezier(.2,.8,.2,1)`;
+    el.style.transform  = `translate3d(${pos.x}px, ${pos.z}px, ${HALF}px) ${target}`;
+    return dur;
+  }
+
+  function shakeAndSettle() {
+    if (cupEl.classList.contains('shaking')) return;
+    
+    // Start shaking
+    cupEl.classList.remove('open');
+    cupEl.classList.add('shaking');
+    
+    // Spin dice internally while hidden
+    const spins = dice.map(d => randomSpin(d.el, d.pos));
+    
+    // Stop shaking after random time, but keep cup CLOSED
+    setTimeout(() => {
+      cupEl.classList.remove('shaking');
+      
+      // Calculate final results and snap dice to them
+      const results = dice.map(() => 1 + Math.floor(Math.random() * 6));
+      let sum = 0;
+      dice.forEach((d, i) => {
+        snapToResult(d.el, d.pos, results[i]);
+        sum += results[i];
+      });
+      // totalEl.textContent = `总点数: ${sum}`;
+      
+      // Removed auto-open: cup stays closed until clicked
+    }, Math.max(...spins));
+  }
+
+  // Toggle cup open/close on click
+  cupEl.addEventListener('click', () => {
+    if (!cupEl.classList.contains('shaking')) {
+      cupEl.classList.toggle('open');
+    }
+  });
+
+  // Settings Logic
+  btnSettings.addEventListener('click', () => {
+    modal.classList.add('active');
+    // Sync slider with current value
+    countInput.value = currentDiceCount;
+    countVal.textContent = currentDiceCount;
+  });
+
+  countInput.addEventListener('input', (e) => {
+    countVal.textContent = e.target.value;
+  });
+
+  btnConfirm.addEventListener('click', () => {
+    const val = parseInt(countInput.value, 10);
+    if (val >= 1 && val <= 12) {
+      currentDiceCount = val;
+      placeDice();
+    }
+    modal.classList.remove('active');
+  });
+
+  // Close modal on click outside
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.classList.remove('active');
+    }
+  });
+
+  placeDice();
+  document.getElementById('btn').addEventListener('click', shakeAndSettle);
+</script>
+</body>
+</html>
