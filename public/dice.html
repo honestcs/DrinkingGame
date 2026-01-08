@@ -115,6 +115,33 @@
   .slider-row { display: flex; align-items: center; gap: 12px; justify-content: center; }
   input[type=range] { flex: 1; accent-color: #42a5f5; cursor: pointer; }
   .val-display { font-size: 20px; font-weight: bold; width: 30px; }
+  
+  /* Sound Toggle */
+  .sound-toggle {
+    margin-bottom: 20px;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0 10px;
+  }
+  .switch {
+    position: relative; display: inline-block; width: 50px; height: 26px;
+  }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute; cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #546e7a;
+    transition: .4s; border-radius: 34px;
+  }
+  .slider:before {
+    position: absolute; content: "";
+    height: 18px; width: 18px;
+    left: 4px; bottom: 4px;
+    background-color: white;
+    transition: .4s; border-radius: 50%;
+  }
+  input:checked + .slider { background-color: #42a5f5; }
+  input:checked + .slider:before { transform: translateX(24px); }
+
   .btn-confirm {
     background: linear-gradient(135deg, #1e88e5, #1565c0);
     border: none; color: white;
@@ -268,6 +295,13 @@
         <span id="diceCountVal" class="val-display">5</span>
       </div>
     </div>
+    <div class="sound-toggle">
+      <span>音效</span>
+      <label class="switch">
+        <input type="checkbox" id="soundToggle" checked>
+        <span class="slider"></span>
+      </label>
+    </div>
     <button id="btnConfirm" class="btn-confirm">确定</button>
   </div>
 </div>
@@ -302,12 +336,60 @@
   const btnConfirm  = document.getElementById('btnConfirm');
   const countInput  = document.getElementById('diceCountInput');
   const countVal    = document.getElementById('diceCountVal');
+  const soundToggle = document.getElementById('soundToggle');
 
   const DIE_SIZE = 36;
   const HALF     = DIE_SIZE / 2;
   
   let currentDiceCount = 5;
+  let soundEnabled = true;
   let dice = [];
+  
+  // Audio Context Setup
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  
+  function playShakeSound() {
+    if (!soundEnabled) return;
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    
+    // Create a "rattle" noise effect using random frequency modulation
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+    osc.frequency.linearRampToValueAtTime(100, audioCtx.currentTime + 0.1);
+    
+    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+    
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.15);
+  }
+  
+  function playSnapSound() {
+    if (!soundEnabled) return;
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.05);
+    
+    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+    
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.05);
+  }
 
   function createDie() {
     const el = document.createElement('div');
@@ -386,6 +468,7 @@
   }
 
   function randomSpin(el, pos) {
+    playShakeSound(); // Sound per spin trigger
     const rx = 360 * (1 + Math.floor(Math.random() * 2));
     const ry = 360 * (1 + Math.floor(Math.random() * 2));
     const rz = 360 * (1 + Math.floor(Math.random() * 2));
@@ -396,6 +479,7 @@
   }
 
   function snapToResult(el, pos, result) {
+    playSnapSound(); // Sound on settle
     const orientList = ORIENTATIONS[result];
     const target     = orientList[Math.floor(Math.random() * 4)];
     const dur        = 600 + Math.random() * 200;
@@ -435,15 +519,17 @@
   cupEl.addEventListener('click', () => {
     if (!cupEl.classList.contains('shaking')) {
       cupEl.classList.toggle('open');
+      if (cupEl.classList.contains('open')) playSnapSound(); // Sound on open
     }
   });
 
   // Settings Logic
   btnSettings.addEventListener('click', () => {
     modal.classList.add('active');
-    // Sync slider with current value
+    // Sync UI with current state
     countInput.value = currentDiceCount;
     countVal.textContent = currentDiceCount;
+    soundToggle.checked = soundEnabled;
   });
 
   countInput.addEventListener('input', (e) => {
@@ -456,6 +542,7 @@
       currentDiceCount = val;
       placeDice();
     }
+    soundEnabled = soundToggle.checked;
     modal.classList.remove('active');
   });
 

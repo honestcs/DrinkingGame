@@ -23,7 +23,7 @@
           :style="{ transform: `rotate(${index * 60}deg) translateY(calc(var(--cylinder-size) * -0.32))` }"
           @click="toggleBullet(index)"
         >
-          <div class="bullet-visual" v-if="chamber && !hideBullets"></div>
+          <div class="bullet-visual" v-if="chamber && !hideBullets && !isSpinning"></div>
         </div>
         
         <!-- Center hub -->
@@ -184,12 +184,56 @@ const playSound = (type) => {
     osc.stop(audioCtx.currentTime + 0.5)
     noise.stop(audioCtx.currentTime + 0.5)
   } else if (type === 'spin') {
-    osc.type = 'triangle'
-    osc.frequency.setValueAtTime(200, audioCtx.currentTime)
-    gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime)
-    gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5)
-    osc.start()
-    osc.stop(audioCtx.currentTime + 0.5)
+    // Mechanical spinning ratchet sound
+    const now = audioCtx.currentTime;
+    const duration = spinDuration.value; // e.g., 2 seconds
+    
+    // Create noise for mechanical friction
+    const bufferSize = audioCtx.sampleRate * duration;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = Math.random() * 2 - 1;
+    }
+    
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = buffer;
+    
+    // Filter to make it sound metallic
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(1000, now);
+    filter.Q.value = 5;
+    
+    const noiseGain = audioCtx.createGain();
+    noiseGain.gain.setValueAtTime(0.1, now);
+    noiseGain.gain.linearRampToValueAtTime(0, now + duration);
+    
+    noise.connect(filter);
+    filter.connect(noiseGain);
+    noiseGain.connect(audioCtx.destination);
+    noise.start();
+    
+    // Create clicking sequence (ratchet effect)
+    const clickCount = 30; // Number of clicks during spin
+    for (let i = 0; i < clickCount; i++) {
+      const time = now + (i / clickCount) * duration; // Evenly spaced clicks (can be exponential for realism)
+      
+      const osc = audioCtx.createOscillator();
+      const clickGain = audioCtx.createGain();
+      
+      osc.frequency.setValueAtTime(800, time);
+      osc.type = 'square';
+      
+      clickGain.gain.setValueAtTime(0.05, time);
+      clickGain.gain.exponentialRampToValueAtTime(0.001, time + 0.03);
+      
+      osc.connect(clickGain);
+      clickGain.connect(audioCtx.destination);
+      
+      osc.start(time);
+      osc.stop(time + 0.03);
+    }
   }
 }
 
