@@ -118,6 +118,13 @@ const statusText = ref('请装填子弹...')
 const lastResult = ref('')
 const showResultModal = ref(false)
 
+// 音效设置
+// 提示：如果您想使用自定义音效，请：
+// 1. 将音频文件放入 public/audio 文件夹
+// 2. 确保文件名分别为: spin.mp3 (旋转), click.mp3 (空枪), bang.mp3 (开火)
+// 3. 将下面的 useCustomSounds 变量改为 true
+const useCustomSounds = ref(false)
+
 // Animation States
 const isFiring = ref(false)
 const isClicking = ref(false)
@@ -138,6 +145,20 @@ const initAudio = () => {
 }
 
 const playSound = (type) => {
+  if (useCustomSounds.value) {
+    const audioMap = {
+      spin: './audio/spin.mp3',
+      click: './audio/click.mp3',
+      bang: './audio/bang.mp3'
+    }
+    if (audioMap[type]) {
+      const audio = new Audio(audioMap[type])
+      audio.volume = 1.0
+      audio.play().catch(e => console.warn(`播放失败: 请检查 public/audio/${type}.mp3 是否存在`, e))
+      return
+    }
+  }
+
   if (!audioCtx) return
   
   const osc = audioCtx.createOscillator()

@@ -15,11 +15,29 @@
         <p>多人聚会必备</p>
       </div>
       
-      <div class="game-card placeholder">
+      <div class="game-card tod" @click="goTo('TruthOrDare')">
         <div class="icon">❤️</div>
         <h2>真心话大冒险</h2>
-        <p>敬请期待...</p>
+        <p>经典聚会游戏</p>
       </div>
+
+      <div class="game-card most-likely" @click="goTo('MostLikely')">
+        <div class="icon">👇</div>
+        <h2>谁最不可能</h2>
+        <p>互相指认，票多者罚</p>
+      </div>
+
+      <div class="game-card never-have-i-ever" @click="goTo('NeverHaveIEver')">
+        <div class="icon">🤫</div>
+        <h2>我有你没有</h2>
+        <p>有的举手，独自社死</p>
+      </div>
+      
+      <!-- <div class="game-card crocodile" @click="goTo('Crocodile')">
+        <div class="icon">🐊</div>
+        <h2>咬手鳄鱼</h2>
+        <p>点牙齿，可能被咬</p>
+      </div> -->
     </div>
   </div>
 </template>
@@ -62,14 +80,19 @@ h1 {
 
 .game-grid {
   display: grid;
-  /* Adjust min-width to allow 2 columns on slightly smaller screens if needed, 
-     but 140px is a good balance */
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 15px;
   width: 100%;
   max-width: 800px;
-  padding: 0 10px;
+  padding: 0 15px;
   box-sizing: border-box;
+}
+
+@media (min-width: 600px) {
+  .game-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
 }
 
 .game-card {
@@ -104,6 +127,42 @@ h1 {
   box-shadow: 0 0 15px rgba(26, 188, 156, 0.3);
 }
 
+.game-card.tod {
+  background: linear-gradient(135deg, #ff9a9e, #fad0c4);
+  border: 1px solid #ff6b6b;
+  box-shadow: 0 0 15px rgba(255, 107, 107, 0.3);
+  color: #880e4f;
+}
+.game-card.tod p {
+  color: #880e4f;
+}
+
+.game-card.most-likely {
+  background: linear-gradient(135deg, #4facfe, #00f2fe);
+  border: 1px solid #00f2fe;
+  box-shadow: 0 0 15px rgba(0, 242, 254, 0.3);
+  color: #01579b;
+}
+.game-card.most-likely p {
+  color: #01579b;
+}
+
+.game-card.never-have-i-ever {
+  background: linear-gradient(135deg, #43cea2, #185a9d);
+  border: 1px solid #43cea2;
+  box-shadow: 0 0 15px rgba(67, 206, 162, 0.3);
+  color: #e0f2f1;
+}
+.game-card.never-have-i-ever p {
+  color: #e0f2f1;
+}
+
+.game-card.crocodile {
+  background: linear-gradient(135deg, #2f1847, #0b0d1b);
+  border: 1px solid #7b5cff;
+  box-shadow: 0 0 15px rgba(123, 92, 255, 0.35);
+}
+
 .game-card.placeholder {
   opacity: 0.6;
   cursor: not-allowed;
@@ -123,12 +182,5 @@ p {
   font-size: 0.8rem;
   opacity: 0.8;
   margin: 0;
-}
-
-/* Small screen optimization */
-@media (max-width: 350px) {
-  .game-grid {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

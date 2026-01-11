@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>摇骰子 - 真实六面与合法朝向</title>
+<title>摇骰子 </title>
 <style>
   :root {
     --scene-w: 360px;
@@ -11,6 +11,10 @@
     --die-size: 36px;
     --face: var(--die-size);
     --half: calc(var(--die-size) / 2);
+
+    /* 骰子点数颜色 */
+    --dot-color-red: #d32f2f;  /* 1点的颜色 (通常是红色) */
+    --dot-color-blue: #010c16; /* 其他点数的颜色 (通常是蓝色或黑色) */
   }
   body {
     margin: 0;
@@ -59,10 +63,10 @@
   }
   .cup {
     position: absolute;
-    width: 240px;
-    height: 280px;
+    width: 270px;
+    height: 300px;
     left: 50%;
-    top: 120px;
+    top: 140px;
     transform: translateX(-50%);
     pointer-events: auto;
     transition: transform 0.5s cubic-bezier(.19,1,.22,1), opacity 0.5s;
@@ -73,7 +77,7 @@
     width: 100%;
     height: 100%;
     background: linear-gradient(90deg, #0d47a1, #42a5f5 30%, #1e88e5 60%, #0d47a1);
-    border-radius: 12% 12% 46% 46% / 10% 10% 18% 18%;
+    border-radius: 12% 12% 50% 50% / 10% 10% 30% 30%;
     position: relative;
     overflow: hidden;
     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
@@ -182,7 +186,17 @@
     width: 100%; height: 100%;
     position: relative;
     transform-style: preserve-3d;
+    /* Fill internal volume to prevent see-through corners */
+    background: #fff;
   }
+  .cube::before, .cube::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: #fff;
+  }
+  .cube::before { transform: rotateY(90deg); }
+  .cube::after  { transform: rotateX(90deg); }
   .face {
     position: absolute;
     width: var(--face); height: var(--face);
@@ -196,10 +210,10 @@
     box-shadow:
       inset 0 0 2px rgba(0,0,0,.14),
       inset 2px 2px 6px rgba(255,255,255,.75),
-      0 0 1px rgba(0,0,0,.12);
-    backface-visibility: hidden;
-  }
-  .front  { transform: rotateY(0deg)    translateZ(var(--half)); }
+    0 0 1px rgba(0,0,0,.12);
+  /* backface-visibility: hidden; */
+}
+.front  { transform: rotateY(0deg)    translateZ(var(--half)); }
   .back   { transform: rotateY(180deg)  translateZ(var(--half)); }
   .right  { transform: rotateY(90deg)   translateZ(var(--half)); }
   .left   { transform: rotateY(-90deg)  translateZ(var(--half)); }
@@ -208,8 +222,8 @@
   .dot { width: 8px; height: 8px; border-radius: 50%;
          align-self: center; justify-self: center;
          box-shadow: inset 1px 1px 2px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.55); }
-  .red  { background:#d32f2f; }
-  .blue { background:#1976d2; }
+  .red  { background: var(--dot-color-red); }
+  .blue { background: var(--dot-color-blue); }
   .big  { width:12px; height:12px; }
   .front .dot { grid-area: 2 / 2; }
   .top .dot:nth-child(1) { grid-area: 1 / 2; }
@@ -315,15 +329,6 @@
     5: 'rotateX(90deg) rotateY(0deg)',
     6: 'rotateX(180deg) rotateY(0deg)'
   };
-  const Z_SPINS = [0, 90, 180, 270];
-  const ORIENTATIONS = {
-    1: Z_SPINS.map(z => `${BASE_TO_ZPLUS[1]} rotateZ(${z}deg)`),
-    2: Z_SPINS.map(z => `${BASE_TO_ZPLUS[2]} rotateZ(${z}deg)`),
-    3: Z_SPINS.map(z => `${BASE_TO_ZPLUS[3]} rotateZ(${z}deg)`),
-    4: Z_SPINS.map(z => `${BASE_TO_ZPLUS[4]} rotateZ(${z}deg)`),
-    5: Z_SPINS.map(z => `${BASE_TO_ZPLUS[5]} rotateZ(${z}deg)`),
-    6: Z_SPINS.map(z => `${BASE_TO_ZPLUS[6]} rotateZ(${z}deg)`)
-  };
 
   const diceGroup = document.getElementById('diceGroup');
   // const totalEl   = document.getElementById('total');
@@ -343,6 +348,7 @@
   
   let currentDiceCount = 5;
   let soundEnabled = true;
+  const useCustomSounds = false; // Set to true to use custom audio files
   let dice = [];
   
   // Audio Context Setup
@@ -350,6 +356,13 @@
   
   function playShakeSound() {
     if (!soundEnabled) return;
+
+    if (useCustomSounds) {
+      const audio = new Audio('./audio/shake.mp3');
+      audio.play().catch(e => console.warn('播放失败: 请检查 public/audio/shake.mp3 是否存在'));
+      return;
+    }
+
     if (audioCtx.state === 'suspended') audioCtx.resume();
     
     const osc = audioCtx.createOscillator();
@@ -372,6 +385,13 @@
   
   function playSnapSound() {
     if (!soundEnabled) return;
+
+    if (useCustomSounds) {
+      const audio = new Audio('./audio/snap.mp3');
+      audio.play().catch(e => console.warn('播放失败: 请检查 public/audio/snap.mp3 是否存在'));
+      return;
+    }
+
     if (audioCtx.state === 'suspended') audioCtx.resume();
     
     const osc = audioCtx.createOscillator();
@@ -422,7 +442,9 @@
   }
 
   function randomPos(centerBias = 0.85) {
-    const maxDist = 80;
+    // Restrict maxDist to keep dice inside the cup (Cup width 270 -> radius 135)
+    // Dice center at 95 + 18(half-size) = 113 < 135.
+    const maxDist = 95;
     const angle = Math.random() * Math.PI * 2;
     // Use sqrt for uniform disk distribution, then bias towards center
     const r = Math.sqrt(Math.random()) * maxDist * centerBias; 
@@ -438,6 +460,9 @@
     
     // Safety break loop count
     const MAX_ATTEMPTS = 500;
+    // Minimum distance between dice centers (die size is 36)
+    // Start with a comfortable gap, but allow shrinking if crowded.
+    const MIN_DIST = 46; 
 
     for (let i = 0; i < currentDiceCount; i++) {
       const die = createDie();
@@ -446,21 +471,30 @@
       
       while (!ok && attempts < MAX_ATTEMPTS) {
         pos = randomPos(0.95);
-        // Collision check: distance must be >= die size (approx 40px to be safe)
-        // Using 42px to add a small gap
-        ok = positions.every(p => Math.hypot(p.x - pos.x, p.z - pos.z) >= 42);
+        // Collision check
+        ok = positions.every(p => Math.hypot(p.x - pos.x, p.z - pos.z) >= MIN_DIST);
         attempts++;
       }
       
-      // If we failed to find a spot after many tries, just place it anyway
-      // (or we could expand the radius, but let's stick to simple fail-safe)
+      // If stricter check fails, try with reduced distance to guarantee placement
       if (!ok) {
-        // Fallback: try to place in a spiral if random fails? 
-        // For now, just accept the last random pos to ensure all dice appear.
+         attempts = 0;
+         while (!ok && attempts < 100) {
+            pos = randomPos(1.0); // Spread out more
+            // Allow tighter packing (38 is very close, just barely not overlapping visually)
+            ok = positions.every(p => Math.hypot(p.x - pos.x, p.z - pos.z) >= 38); 
+            attempts++;
+         }
       }
 
+      // If still fails, just place it (overlap is better than missing die)
+
       positions.push(pos);
-      die.style.transform = `translate3d(${pos.x}px, ${pos.z}px, ${HALF}px) ${BASE_TO_ZPLUS[1]}`;
+      // Random initial rotation
+      const initZ = Math.floor(Math.random() * 360);
+      // NOTE: Apply Z-spin FIRST, then orient the die (which is identity for '1', but consistent)
+      // Actually for '1' it doesn't matter, but for correctness let's match snapToResult
+      die.style.transform = `translate3d(${pos.x}px, ${pos.z}px, ${HALF}px) rotateZ(${initZ}deg) ${BASE_TO_ZPLUS[1]}`;
       diceGroup.appendChild(die);
       dice.push({ el: die, pos });
     }
@@ -480,8 +514,14 @@
 
   function snapToResult(el, pos, result) {
     playSnapSound(); // Sound on settle
-    const orientList = ORIENTATIONS[result];
-    const target     = orientList[Math.floor(Math.random() * 4)];
+    
+    // Randomize Z rotation to show corners/edges naturally
+    const zRandom = Math.floor(Math.random() * 360);
+    const baseTransform = BASE_TO_ZPLUS[result];
+    // IMPORTANT: rotateZ must be applied BEFORE baseTransform (left-to-right in string)
+    // so that it spins the die around the world vertical axis, THEN flips it to the correct face.
+    const target = `rotateZ(${zRandom}deg) ${baseTransform}`;
+
     const dur        = 600 + Math.random() * 200;
     el.style.transition = `transform ${dur}ms cubic-bezier(.2,.8,.2,1)`;
     el.style.transform  = `translate3d(${pos.x}px, ${pos.z}px, ${HALF}px) ${target}`;
